@@ -4,7 +4,7 @@ from scipy import signal
 
 # Main function
 
-def cbf(volume, method = "fft", fps = 200, max_freq = 20, window = 25):
+def cbf(volume, method = "fft", fps = 200, max_freq = 20):
     """
     Convenience CBF function that invokes one of the three methods for
     computing CBF used in Quinn et al 2015, Science Translational Medicine.
@@ -23,8 +23,6 @@ def cbf(volume, method = "fft", fps = 200, max_freq = 20, window = 25):
         Framerate of the video, or frames per second (default: 200).
     max_freq : float
         Maximum allowable frequency; anything above this is clamped (default: 20).
-    window : float
-        Window size used in the Welch sliding average (default: 25).
 
     Returns
     -------
@@ -36,14 +34,15 @@ def cbf(volume, method = "fft", fps = 200, max_freq = 20, window = 25):
     elif method == "psd":
         return _cbf_psd(volume, fps, max_freq = max_freq)
     elif method == "welch":
-        return _cbf_welch(volume, fps, max_freq = max_freq, window = window)
+        return _cbf_welch(volume, fps, max_freq = max_freq)
     else:
-        raise Error("Unrecognized method \"{}\" specified; only \"fft\", \"psd\", and \"welch\" supported.".format(method))
+        raise Error("Unrecognized method \"{}\" specified; " \
+            "only \"fft\", \"psd\", and \"welch\" supported.".format(method))
 
 # CBF functions
 
 def _cbf_fft(volume, fps, max_freq = 20):
-    '''
+    """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function is fast but produces noisy results, as it only considers the
     instantaneous signal when extracting frequencies.
@@ -61,7 +60,7 @@ def _cbf_fft(volume, fps, max_freq = 20):
     -------
     retval : array, shape (H, W)
         Heatmap of dominant frequencies at each spatial location (pixel).
-    '''
+    """
     N = nextpow2(volume.shape[0])
     freq_bins = int(fps / 2) * np.linspace(0, 1, int(N / 2) + 1)
     retval = np.zeros(shape = (volume.shape[1], volume.shape[2]))
@@ -86,9 +85,10 @@ def _cbf_fft(volume, fps, max_freq = 20):
     # All done.
     return heatmap
 
-def cbf2(volume, fps, max_freq = 20):
-    '''
-    Calculates the ciliary beat frequency (CBF) of a given 3D volume.
+def _cbf_psd(volume, fps, max_freq = 20):
+    """
+    Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
+    function computes a simple periodogram of frequencies in a given signal.
 
     Parameters
     ----------
@@ -103,67 +103,43 @@ def cbf2(volume, fps, max_freq = 20):
     -------
     retval : array, shape (H, W)
         Heatmap of dominant frequencies at each spatial location (pixel).
-    '''
+    """
     N = nextpow2(volume.shape[0])
-
-    # f, t, Sxx = signal.spectrogram(volume, fps, nfft = N,
-    #     return_onesided = True, axis = 0, mode = "magnitude")
     f, Pxx = signal.periodogram(volume, fs = fps, nfft = N,
         return_onesided = True, axis = 0)
+    max_freq_indices = Pxx.argmax(axis = 0)
+    heatmap = f[max_freq_indices]
+    heatmap[heatmap > max_freq] = max_freq
+    return heatmap
 
-def cbf2(pixels, fps = 200, maximum_frequency = 20, maximum_frames = 128, detrend = True,
-    window = 25.0, nfft = 128, noverlap = 127, pad_to = 256):
+def _cbf_welch(volume, fps, max_freq = 20):
     """
-    Calculates CBF using matplotlib's spectrogram to average frequencies across
-    a temporal signal. If a CBF is computed which exceeds the maximum allowable
-    frequency, the frequency with the next largest power is used, and so forth
-    until a viable frequency is found. This prevents the buildup of power at 0
-    or maximum_frequency for noisy signals.
+    Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
+    function uses the Welch algorithm to build a periodogram that is smoothed
+    using a windowed average, generating a robust estimation of the spectral
+    density of the signal.
 
     Parameters
     ----------
-    pixels : array, shape (N, M)
-        N instances of M-dimensional pixel trajectories.
-    fps : integer
-        Frames per second.
-    maximum_frequency : integer
-        Maximum frequency to consider. All frequencies over this threshold are reduced to it.
-    maximum_frames : integer
-        Maximum number of frames to consider.
-    detrend : boolean
-        If True, detrends the data using moving average.
-    window : integer
-        If detrend is True, window size used to perform convolution.
-    nfft : integer
-        See mlab.psd() documentation.
-    noverlap : integer
-        See mlab.psd() documentation.
-    pad_to : integer
-        See mlab.psd() documentation.
+    volume : array, shape (F, H, W)
+        A 3D video volume with F frames, H rows, and W columns.
+    fps : int
+        Frames per second (capture framerate) of the video.
+    max_freq : float
+        Maximum allowed frequency; frequencies above this are clamped.
 
     Returns
     -------
-    retval : array, shape (N,)
-        List of CBFs for each pixel.
+    retval : array, shape (H, W)
+        Heatmap of dominant frequencies at each spatial location (pixel).
     """
-    retval = np.zeros((pixels.shape[0]))
-    i = 0
-    w = np.ones(window) / float(window)
-    for row in pixels:
-        trajectory = pixels[i]
-        if detrend is True:
-            trajectory = pixels[i] - np.convolve(pixels[i], w, "same")
-            trajectory = trajectory[(window / 2):np.size(trajectory) - (window / 2)]
-        p, f = mlab.psd(trajectory[:maximum_frames], NFFT = nfft,
-            detrend = mlab.detrend_linear, noverlap = noverlap, Fs = fps,
-            pad_to = pad_to)
-        idx = np.argmax(p)
-        while f[idx] > maximum_frequency:
-            p[idx] = 0.0
-            idx = np.argmax(p)
-        retval[i] = f[idx]
-        i += 1
-    return retval
+    N = nextpow2(volume.shape[0])
+    f, Pxx = signal.welch(volume, fs = fps, window = "hann", nfft = N,
+        return_onesided = True, axis = 0)
+    max_freq_indices = Pxx.argmax(axis = 0)
+    heatmap = f[max_freq_indices]
+    heatmap[heatmap > max_freq] = max_freq
+    return heatmap
 
 # Utilities
 
