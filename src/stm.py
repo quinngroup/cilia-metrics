@@ -4,7 +4,7 @@ from scipy import signal
 
 # Main function
 
-def cbf(volume, method = "fft", fps = 200, max_freq = 20):
+def cbf(volume, method = "fft", fps = 200, max_freq = 20,sequence=5):
     """
     Convenience CBF function that invokes one of the three methods for
     computing CBF used in Quinn et al 2015, Science Translational Medicine.
@@ -30,18 +30,18 @@ def cbf(volume, method = "fft", fps = 200, max_freq = 20):
         A heatmap of dominant frequencies, one at each pixel location.
     """
     if method == "fft":
-        return _cbf_fft(volume, fps, max_freq = max_freq)
+        return _cbf_fft(volume, fps, max_freq = max_freq,sequence=sequence)
     elif method == "psd":
-        return _cbf_psd(volume, fps, max_freq = max_freq)
+        return _cbf_psd(volume, fps, max_freq = max_freq,sequence=sequence)
     elif method == "welch":
-        return _cbf_welch(volume, fps, max_freq = max_freq)
+        return _cbf_welch(volume, fps, max_freq = max_freq,sequence=sequence)
     else:
         raise Error("Unrecognized method \"{}\" specified; " \
             "only \"fft\", \"psd\", and \"welch\" supported.".format(method))
 
 # CBF functions
 
-def _cbf_fft(volume, fps, max_freq = 20):
+def _cbf_fft(volume, fps, max_freq = 20,sequence=5):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function is fast but produces noisy results, as it only considers the
@@ -73,19 +73,9 @@ def _cbf_fft(volume, fps, max_freq = 20):
     vol_abs = 2 * np.absolute(vol_fft[:int(N / 2) + 1])
 
     # Find the amplitude with the largest power.
-    max_freq_indices = vol_abs.argmax(axis = 0)
+    return get_best_volumes(vol_abs,freq_bins,max_freq,sequence)
 
-    # Use the indices to extract the correct frequencies, and put them
-    # at the correct locations in a heatmap.
-    heatmap = freq_bins[max_freq_indices]
-
-    # Maximal suppression.
-    heatmap[heatmap > max_freq] = max_freq
-
-    # All done.
-    return heatmap
-
-def _cbf_psd(volume, fps, max_freq = 20):
+def _cbf_psd(volume, fps, max_freq = 20,sequence=5):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function computes a simple periodogram of frequencies in a given signal.
@@ -107,12 +97,9 @@ def _cbf_psd(volume, fps, max_freq = 20):
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.periodogram(volume, fs = fps, nfft = N,
         return_onesided = True, axis = 0)
-    max_freq_indices = Pxx.argmax(axis = 0)
-    heatmap = f[max_freq_indices]
-    heatmap[heatmap > max_freq] = max_freq
-    return heatmap
+    return get_best_volumes(Pxx,f,max_freq,sequence)
 
-def _cbf_welch(volume, fps, max_freq = 20):
+def _cbf_welch(volume, fps, max_freq = 10,sequence=5):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function uses the Welch algorithm to build a periodogram that is smoothed
@@ -136,12 +123,25 @@ def _cbf_welch(volume, fps, max_freq = 20):
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.welch(volume, fs = fps, window = "hann", nfft = N,
         return_onesided = True, axis = 0)
-    max_freq_indices = Pxx.argmax(axis = 0)
-    heatmap = f[max_freq_indices]
-    heatmap[heatmap > max_freq] = max_freq
-    return heatmap
+    return get_best_volumes(Pxx,f,max_freq,sequence)
 
 # Utilities
+
+def get_best_volumes(Pxx,f,max_freq,freq=5):
+    max_freq_indices = Pxx.argsort(axis=0)[:freq]
+    heatmap_list = list();
+    for i in range(0,len(max_freq_indices)):
+        heatmap = f[max_freq_indices[i]]
+        heatmap[heatmap > max_freq] = max_freq
+        heatmap_list.append(heatmap)
+    return np.array(heatmap_list)
+
+
+
+
+
+
+
 
 def nextpow2(i):
     """
