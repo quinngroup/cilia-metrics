@@ -127,8 +127,8 @@ def _cbf_welch(volume, fps, max_freq = 10,sequence=5):
 
 # Utilities
 
-def get_best_volumes(Pxx,f,max_freq,freq=5):
-    max_freq_indices = Pxx.argsort(axis=0)[:freq]
+def get_best_volumes(Pxx, f, max_freq, top=5):
+    max_freq_indices = np.array(-Pxx).argsort(axis = 0)[:top]
     heatmap_list = list();
     for i in range(0,len(max_freq_indices)):
         heatmap = f[max_freq_indices[i]]
