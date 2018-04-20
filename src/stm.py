@@ -4,7 +4,7 @@ from scipy import signal
 
 # Main function
 
-def cbf(volume, method = "fft", fps = 200, max_freq = 20,sequence=5):
+def cbf(volume, method = "fft", fps = 200, max_freq = 20, sequence = 5):
     """
     Convenience CBF function that invokes one of the three methods for
     computing CBF used in Quinn et al 2015, Science Translational Medicine.
@@ -41,7 +41,7 @@ def cbf(volume, method = "fft", fps = 200, max_freq = 20,sequence=5):
 
 # CBF functions
 
-def _cbf_fft(volume, fps, max_freq = 20,sequence=5):
+def _cbf_fft(volume, fps, max_freq = 20, sequence = 5):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function is fast but produces noisy results, as it only considers the
@@ -73,9 +73,9 @@ def _cbf_fft(volume, fps, max_freq = 20,sequence=5):
     vol_abs = 2 * np.absolute(vol_fft[:int(N / 2) + 1])
 
     # Find the amplitude with the largest power.
-    return get_best_volumes(vol_abs,freq_bins,max_freq,sequence)
+    return get_best_volumes(vol_abs, freq_bins, max_freq, sequence)
 
-def _cbf_psd(volume, fps, max_freq = 20,sequence=5):
+def _cbf_psd(volume, fps, max_freq = 20, sequence = 5):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function computes a simple periodogram of frequencies in a given signal.
@@ -97,9 +97,9 @@ def _cbf_psd(volume, fps, max_freq = 20,sequence=5):
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.periodogram(volume, fs = fps, nfft = N,
         return_onesided = True, axis = 0)
-    return get_best_volumes(Pxx,f,max_freq,sequence)
+    return get_best_volumes(Pxx, f, max_freq, sequence)
 
-def _cbf_welch(volume, fps, max_freq = 10,sequence=5):
+def _cbf_welch(volume, fps, max_freq = 10, sequence = 5):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function uses the Welch algorithm to build a periodogram that is smoothed
@@ -127,10 +127,10 @@ def _cbf_welch(volume, fps, max_freq = 10,sequence=5):
 
 # Utilities
 
-def get_best_volumes(Pxx, f, max_freq, top=5):
-    max_freq_indices = np.array(-Pxx).argsort(axis = 0)[:top]
+def get_best_volumes(pxx, f, max_freq, top = 5):
+    max_freq_indices = np.array(- pxx).argsort(axis = 0)[:top]
     heatmap_list = list();
-    for i in range(0,len(max_freq_indices)):
+    for i in range(0, len(max_freq_indices)):
         heatmap = f[max_freq_indices[i]]
         heatmap[heatmap > max_freq] = max_freq
         heatmap_list.append(heatmap)
