@@ -70,7 +70,7 @@ def _cbf_fft(volume, fps, max_freq = 20, n_maps = 5):
     vol_abs = 2 * np.absolute(vol_fft[:int(N / 2) + 1])
 
     # Find the amplitude with the largest power.
-    return get_best_volumes(vol_abs, freq_bins, max_freq, sequence)
+    return _get_best_volumes(vol_abs, freq_bins, max_freq, n_maps)
 
 def _cbf_psd(volume, fps, max_freq = 20, n_maps = 5):
     """
@@ -92,7 +92,7 @@ def _cbf_psd(volume, fps, max_freq = 20, n_maps = 5):
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.periodogram(volume, fs = fps, nfft = N,
         return_onesided = True, axis = 0)
-    return get_best_volumes(Pxx, f, max_freq, sequence)
+    return get_best_volumes(Pxx, f, max_freq, n_maps)
 
 def _cbf_welch(volume, fps, max_freq = 20, n_maps = 5):
     """
@@ -116,7 +116,7 @@ def _cbf_welch(volume, fps, max_freq = 20, n_maps = 5):
     N = nextpow2(volume.shape[0])
     f,Pxx = signal.welch(volume, fs = fps, window = "hann", nfft = N,
         return_onesided = True, axis = 0)
-    return get_best_volumes(Pxx, f, max_freq, n_maps)
+    return _get_best_volumes(Pxx, f, max_freq, n_maps)
 
 # Utilities
 
