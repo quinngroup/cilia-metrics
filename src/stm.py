@@ -92,7 +92,7 @@ def _cbf_psd(volume, fps, max_freq = 20, n_maps = 5):
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.periodogram(volume, fs = fps, nfft = N,
         return_onesided = True, axis = 0)
-    return get_best_volumes(Pxx, f, max_freq, n_maps)
+    return _get_best_volumes(Pxx, f, max_freq, n_maps)
 
 def _cbf_welch(volume, fps, max_freq = 20, n_maps = 5):
     """
