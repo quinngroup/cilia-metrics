@@ -6,6 +6,7 @@ from scipy import signal
 # Main function
 
 def cbf(volume, method = "fft", fps = 200, max_freq = 20, n_maps = 5):
+
     """
     Convenience CBF function that invokes one of the three methods for
     computing CBF used in Quinn et al 2015, Science Translational Medicine.
@@ -28,6 +29,7 @@ def cbf(volume, method = "fft", fps = 200, max_freq = 20, n_maps = 5):
     heatmap : array, shape (H, W)
         A heatmap of dominant frequencies, one at each pixel location.
     """
+
     if method == "fft":
         return _cbf_fft(volume, fps, max_freq = max_freq, n_maps = n_maps)
     elif method == "psd":
@@ -41,6 +43,7 @@ def cbf(volume, method = "fft", fps = 200, max_freq = 20, n_maps = 5):
 # CBF functions
 
 def _cbf_fft(volume, fps, max_freq = 20, n_maps = 5):
+
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function is fast but produces noisy results, as it only considers the
@@ -58,6 +61,7 @@ def _cbf_fft(volume, fps, max_freq = 20, n_maps = 5):
     retval : array, shape (H, W)
         Heatmap of dominant frequencies at each spatial location (pixel).
     """
+
     N = nextpow2(volume.shape[0])
     freq_bins = int(fps / 2) * np.linspace(0, 1, int(N / 2) + 1)
     retval = np.zeros(shape = (volume.shape[1], volume.shape[2]))
@@ -73,6 +77,7 @@ def _cbf_fft(volume, fps, max_freq = 20, n_maps = 5):
     return _get_best_volumes(vol_abs, freq_bins, max_freq, n_maps)
 
 def _cbf_psd(volume, fps, max_freq = 20, n_maps = 5):
+    
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function computes a simple periodogram of frequencies in a given signal.
@@ -89,12 +94,14 @@ def _cbf_psd(volume, fps, max_freq = 20, n_maps = 5):
     retval : array, shape (H, W)
         Heatmap of dominant frequencies at each spatial location (pixel).
     """
+
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.periodogram(volume, fs = fps, nfft = N,
         return_onesided = True, axis = 0)
     return _get_best_volumes(Pxx, f, max_freq, n_maps)
 
 def _cbf_welch(volume, fps, max_freq = 20, n_maps = 5):
+
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function uses the Welch algorithm to build a periodogram that is smoothed
@@ -113,6 +120,7 @@ def _cbf_welch(volume, fps, max_freq = 20, n_maps = 5):
     retval : array, shape (H, W)
         Heatmap of dominant frequencies at each spatial location (pixel).
     """
+
     N = nextpow2(volume.shape[0])
     f,Pxx = signal.welch(volume, fs = fps, window = "hann", nfft = N,
         return_onesided = True, axis = 0)
@@ -121,6 +129,7 @@ def _cbf_welch(volume, fps, max_freq = 20, n_maps = 5):
 # Utilities
 
 def _get_best_volumes(freq_bins, f, max_freq = 20, n_maps = 5):
+
     """
     The Utility function gets the best maps the top 20 maps from the function
     Parameters
@@ -145,6 +154,7 @@ def _get_best_volumes(freq_bins, f, max_freq = 20, n_maps = 5):
     return np.array(heatmap_list)
 
 def nextpow2(i):
+
     """
     Calculates the next even power of 2 which is greater than or equal to i.
     Parameters
