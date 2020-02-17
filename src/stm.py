@@ -29,19 +29,21 @@ def cbf(volume, method = "fft", fps = 200, max_freq = 20):
     heatmap : array, shape (H, W)
         A heatmap of dominant frequencies, one at each pixel location.
     """
+    N = nextpow2(volume.shape[0])
     if method == "fft":
-        return _cbf_fft(volume, fps, max_freq = max_freq)
+        maps = _cbf_fft(volume, fps, N, max_freq = max_freq)
     elif method == "psd":
-        return _cbf_psd(volume, fps, max_freq = max_freq)
+        maps = _cbf_psd(volume, fps, N, max_freq = max_freq)
     elif method == "welch":
-        return _cbf_welch(volume, fps, max_freq = max_freq)
+        maps = _cbf_welch(volume, fps, N, max_freq = max_freq)
     else:
         raise Error("Unrecognized method \"{}\" specified; " \
             "only \"fft\", \"psd\", and \"welch\" supported.".format(method))
 
+
 # CBF functions
 
-def _cbf_fft(volume, fps, max_freq = 20):
+def _cbf_fft(volume, fps, N, max_freq = 20):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function is fast but produces noisy results, as it only considers the
@@ -53,6 +55,8 @@ def _cbf_fft(volume, fps, max_freq = 20):
         A 3D video volume with F frames, H rows, and W columns.
     fps : int
         Frames per second (capture framerate) of the video.
+    N : int
+        Number of bins for the discrete transform.
     max_freq : float
         Maximum allowed frequency; frequencies above this are clamped.
 
@@ -61,7 +65,6 @@ def _cbf_fft(volume, fps, max_freq = 20):
     retval : array, shape (H, W)
         Heatmap of dominant frequencies at each spatial location (pixel).
     """
-    N = nextpow2(volume.shape[0])
     freq_bins = int(fps / 2) * np.linspace(0, 1, int(N / 2) + 1)
     retval = np.zeros(shape = (volume.shape[1], volume.shape[2]))
 
@@ -85,24 +88,10 @@ def _cbf_fft(volume, fps, max_freq = 20):
     # All done.
     return heatmap
 
-def _cbf_psd(volume, fps, max_freq = 20):
+def _cbf_psd(volume, fps, N, max_freq = 20):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function computes a simple periodogram of frequencies in a given signal.
-
-    Parameters
-    ----------
-    volume : array, shape (F, H, W)
-        A 3D video volume with F frames, H rows, and W columns.
-    fps : int
-        Frames per second (capture framerate) of the video.
-    max_freq : float
-        Maximum allowed frequency; frequencies above this are clamped.
-
-    Returns
-    -------
-    retval : array, shape (H, W)
-        Heatmap of dominant frequencies at each spatial location (pixel).
     """
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.periodogram(volume, fs = fps, nfft = N,
@@ -112,26 +101,12 @@ def _cbf_psd(volume, fps, max_freq = 20):
     heatmap[heatmap > max_freq] = max_freq
     return heatmap
 
-def _cbf_welch(volume, fps, max_freq = 20):
+def _cbf_welch(volume, fps, N, max_freq = 20):
     """
     Calculates the ciliary beat frequency (CBF) of a given 3D volume. This
     function uses the Welch algorithm to build a periodogram that is smoothed
     using a windowed average, generating a robust estimation of the spectral
     density of the signal.
-
-    Parameters
-    ----------
-    volume : array, shape (F, H, W)
-        A 3D video volume with F frames, H rows, and W columns.
-    fps : int
-        Frames per second (capture framerate) of the video.
-    max_freq : float
-        Maximum allowed frequency; frequencies above this are clamped.
-
-    Returns
-    -------
-    retval : array, shape (H, W)
-        Heatmap of dominant frequencies at each spatial location (pixel).
     """
     N = nextpow2(volume.shape[0])
     f, Pxx = signal.welch(volume, fs = fps, window = "hann", nfft = N,
